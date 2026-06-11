@@ -1,0 +1,13 @@
+export type OrderSide = 'BUY' | 'SELL';
+
+export interface MarketState {
+  bid: number;
+  ask: number;
+  tickSize: number;
+}
+
+export interface PayupConfig {
+  side: OrderSide;
+  chosenPrice: number;
+  payupTicks: number; // Value >= 0
+}
