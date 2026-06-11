@@ -1,0 +1,93 @@
+An algorithm implementation for a trading execution engine uses the payup field to determine how many ticks to adjust a limit order price to guarantee a fill.
+Here is the structured TypeScript implementation, data modeling, and math foundations for this design strategy.
+------------------------------
+## 1. Define Core Types
+We model the order intent, market state, and configuration to prevent runtime calculation bugs.
+
+export type OrderSide = 'BUY' | 'SELL';
+export interface MarketState {
+  bid: number;
+  ask: number;
+  tickSize: number;
+}
+export interface PayupConfig {
+  side: OrderSide;
+  chosenPrice: number;
+  payupTicks: number; // Value >= 0
+}
+
+## 2. Implement the Price Calculator
+The logical step for adjusting prices mathematically varies by order side:
+
+* Buy Orders: Increase price to chase the ask.
+* Sell Orders: Decrease price to chase the bid.
+
+/**
+ * Calculates the adjusted order execution price based on payup tick rules.
+ * @param config The payup parameter configuration and order side.
+ * @param market The current market state (bid, ask, tick size).
+ * @returns The final execution price rounded to a valid tick precision.
+ */export function calculatePayupPrice(config: PayupConfig, market: MarketState): number {
+  const { side, chosenPrice, payupTicks } = config;
+  const { tickSize } = market;
+
+  if (payupTicks < 0) {
+    throw new Error("Payup ticks cannot be negative.");
+  }
+
+  // Calculate the raw adjustment based on direction
+  const priceAdjustment = payupTicks * tickSize;
+  let finalPrice = chosenPrice;
+
+  if (side === 'BUY') {
+    finalPrice = chosenPrice + priceAdjustment;
+  } else {
+    finalPrice = chosenPrice - priceAdjustment;
+  }
+
+  // Handle precision errors inherent in floating-point math
+  return Math.round(finalPrice / tickSize) * tickSize;
+}
+
+## 3. Verify Mathematical Logic## Case A: Buy Order Verification
+Given market parameters:
+
+* $Bid = \$10.20$
+* $Ask = \$10.23$
+* $TickSize = \$0.01$
+* $ChosenPrice = \$10.20$
+
+The algorithmic adjustment formulas are:
+$$\text{Final Buy Price} = \text{Chosen Price} + (\text{Payup Ticks} \times \text{Tick Size})$$ 
+
+* For Payup = 0:
+$$\$10.20 + (0 \times \$0.01) = \$10.20$$ 
+* For Payup = 2:
+$$\$10.20 + (2 \times \$0.01) = \$10.22$$ 
+* For Payup = 3:
+$$\$10.20 + (3 \times \$0.01) = \$10.23 \quad (\text{Immediate Fill Condition met as Price } \geq \text{ Market Ask})$$ 
+
+## Case B: Sell Order Verification
+Given market parameters:
+
+* $ChosenPrice = \$10.23$
+* $TickSize = \$0.01$
+
+The algorithmic adjustment formulas are:
+$$\text{Final Sell Price} = \text{Chosen Price} - (\text{Payup Ticks} \times \text{Tick Size})$$ 
+
+* For Payup = 0:
+$$\$10.23 - (0 \times \$0.01) = \$10.23$$ 
+* For Payup = 2:
+$$\$10.23 - (2 \times \$0.01) = \$10.21$$ 
+
+------------------------------
+## ✅ Execution Summary
+The execution price matches design requirements: a higher payup value aggressively shifts the order price closer to or beyond the matching counterparty quote, trading away price optimization to secure immediate execution liquidity.
+If you are building out this architecture, tell me:
+
+* Do you want to build automated capping logic so a buy payup never accidentally crosses past a specific percentage of the market ask?
+* Are you integrating this into a real-time WebSocket order book stream?
+* Do you need assistance generating a suite of Jest/Mocha unit tests to validate these exact edge cases?
+
+
