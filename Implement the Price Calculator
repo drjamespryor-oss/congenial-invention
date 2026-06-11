@@ -1,0 +1,27 @@
+/**
+ * Calculates the adjusted order execution price based on payup tick rules.
+ * @param config The payup parameter configuration and order side.
+ * @param market The current market state (bid, ask, tick size).
+ * @returns The final execution price rounded to a valid tick precision.
+ */
+export function calculatePayupPrice(config: PayupConfig, market: MarketState): number {
+  const { side, chosenPrice, payupTicks } = config;
+  const { tickSize } = market;
+
+  if (payupTicks < 0) {
+    throw new Error("Payup ticks cannot be negative.");
+  }
+
+  // Calculate the raw adjustment based on direction
+  const priceAdjustment = payupTicks * tickSize;
+  let finalPrice = chosenPrice;
+
+  if (side === 'BUY') {
+    finalPrice = chosenPrice + priceAdjustment;
+  } else {
+    finalPrice = chosenPrice - priceAdjustment;
+  }
+
+  // Handle precision errors inherent in floating-point math
+  return Math.round(finalPrice / tickSize) * tickSize;
+}
